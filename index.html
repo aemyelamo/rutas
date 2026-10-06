@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>¿Por dónde salgo?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{--bg:#f1f3ef;--card:#fff;--ink:#16221d;--mute:#5d6b64;--line:#d5dad4;--ok:#17744a;--warn:#a85a0a;--bad:#b3261e;--btn:#16221d;--btnt:#fff;
+font-family:"Atkinson Hyperlegible",system-ui,sans-serif;box-sizing:border-box;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1512;--card:#18211c;--ink:#e9efe9;--mute:#98a69d;--line:#2b3830;--ok:#4cc38a;--warn:#e0a24a;--bad:#ff8a80;--btn:#e9efe9;--btnt:#0f1512}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+main{max-width:30rem;margin:0 auto;padding:1rem}
+h1{font-size:1.5rem;margin:.5rem 0 1rem}
+button{font:inherit;cursor:pointer}
+#go{width:100%;padding:1rem;font-size:1.15rem;font-weight:700;border:0;border-radius:.75rem;background:var(--btn);color:var(--btnt)}
+#go:disabled{opacity:.6}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+#res{margin:1rem 0;display:grid;gap:.6rem}
+.r{background:var(--card);border:1px solid var(--line);border-radius:.75rem;padding:.8rem 1rem;display:grid;grid-template-columns:1fr auto;gap:.1rem .8rem;align-items:center}
+.r.best{border:2px solid var(--ok)}
+.r .n{font-weight:700}
+.r .t{font-size:2rem;font-weight:700;grid-row:span 2;text-align:right;line-height:1}
+.r .d{color:var(--mute);font-size:.9rem}
+.tag{color:var(--ok);font-weight:700;font-size:.9rem}
+.warn{color:var(--warn)}.bad{color:var(--bad)}
+.hora{color:var(--mute);font-size:.85rem;text-align:center}
+details{background:var(--card);border:1px solid var(--line);border-radius:.75rem;padding:.7rem 1rem;margin-top:1rem}
+summary{font-weight:700;cursor:pointer}
+label{display:block;margin:.8rem 0 .25rem;font-size:.9rem;color:var(--mute)}
+input,textarea{width:100%;font:inherit;font-size:1rem;padding:.6rem;border:1px solid var(--line);border-radius:.5rem;background:var(--bg);color:var(--ink)}
+textarea{min-height:3.4rem;resize:vertical}
+fieldset{border:0;border-top:1px solid var(--line);margin:1rem 0 0;padding:0}
+legend{font-weight:700;padding-right:.5rem}
+.save{margin-top:1rem;padding:.7rem 1rem;border:1px solid var(--line);border-radius:.5rem;background:transparent;color:var(--ink);font-weight:700}
+small{color:var(--mute);display:block;margin-top:.3rem}
+</style>
+</head>
+<body>
+<main>
+<h1>¿Por dónde salgo?</h1>
+<button id="go">Calcular ahora</button>
+<div id="res" aria-live="polite"></div>
+<div class="hora" id="hora"></div>
+
+<details id="cfg">
+<summary>Configuración</summary>
+<label for="key">Clave de API de Google (Routes API)</label>
+<input id="key" type="password" autocomplete="off">
+<label for="from">Origen (dirección o coordenadas)</label>
+<input id="from" placeholder="Calle Ejemplo 1, Sevilla">
+<label for="to">Destino (dirección o coordenadas)</label>
+<input id="to" placeholder="Av. del Trabajo 10, Sevilla">
+<div id="rutas"></div>
+<small>Cada ruta se fuerza con puntos de paso (uno por línea). Usa direcciones o coordenadas "lat,lng" copiadas de Google Maps (clic derecho sobre la calle por la que quieres pasar).</small>
+<button class="save" id="save">Guardar</button>
+</details>
+</main>
+<script>
+const N=4, K="rutas_v1";
+const $=id=>document.getElementById(id);
+let S={key:"",from:"",to:"",routes:Array.from({length:N},(_,i)=>({name:"Ruta "+(i+1),via:""}))};
+try{const g=JSON.parse(localStorage.getItem(K));if(g)S=Object.assign(S,g)}catch(e){}
+
+function drawCfg(){
+  $("key").value=S.key;$("from").value=S.from;$("to").value=S.to;
+  $("rutas").innerHTML="";
+  S.routes.forEach((r,i)=>{
+    const f=document.createElement("fieldset"),l=document.createElement("legend");
+    l.textContent="Ruta "+(i+1);f.appendChild(l);
+    const a=document.createElement("label");a.textContent="Nombre";a.htmlFor="n"+i;
+    const n=document.createElement("input");n.id="n"+i;n.value=r.name;
+    const b=document.createElement("label");b.textContent="Puntos de paso";b.htmlFor="v"+i;
+    const v=document.createElement("textarea");v.id="v"+i;v.value=r.via;
+    f.append(a,n,b,v);$("rutas").appendChild(f);
+  });
+}
+function save(){
+  S.key=$("key").value.trim();S.from=$("from").value.trim();S.to=$("to").value.trim();
+  S.routes=S.routes.map((_,i)=>({name:$("n"+i).value.trim()||"Ruta "+(i+1),via:$("v"+i).value}));
+  try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}
+}
+function loc(s){
+  const m=s.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+  return m?{location:{latLng:{latitude:+m[1],longitude:+m[2]}}}:{address:s.trim()};
+}
+async function calc(r){
+  const vias=r.via.split("\n").map(s=>s.trim()).filter(Boolean);
+  const body={origin:loc(S.from),destination:loc(S.to),travelMode:"DRIVE",
+    routingPreference:"TRAFFIC_AWARE_OPTIMAL",languageCode:"es",
+    intermediates:vias.map(v=>Object.assign(loc(v),{via:true}))};
+  const res=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{method:"POST",
+    headers:{"Content-Type":"application/json","X-Goog-Api-Key":S.key,
+    "X-Goog-FieldMask":"routes.duration,routes.staticDuration,routes.distanceMeters"},
+    body:JSON.stringify(body)});
+  const j=await res.json();
+  if(!res.ok)throw new Error(j.error&&j.error.message||"Error "+res.status);
+  const o=j.routes&&j.routes[0];
+  if(!o)throw new Error("Sin resultado");
+  const s=x=>Math.round(parseInt(x)/60);
+  return{name:r.name,min:s(o.duration),free:s(o.staticDuration),km:(o.distanceMeters/1000).toFixed(1).replace(".",",")};
+}
+async function go(){
+  save();
+  if(!S.key||!S.from||!S.to){$("cfg").open=true;$("res").textContent="Completa clave, origen y destino.";return}
+  const btn=$("go");btn.disabled=true;btn.textContent="Consultando…";$("res").textContent="";
+  const act=S.routes.filter(r=>r.via.trim());
+  const list=act.length?act:S.routes.slice(0,1);
+  const out=await Promise.all(list.map(r=>calc(r).catch(e=>({name:r.name,err:e.message}))));
+  const ok=out.filter(o=>!o.err).sort((a,b)=>a.min-b.min);
+  const all=ok.concat(out.filter(o=>o.err));
+  $("res").innerHTML="";
+  all.forEach((o,i)=>{
+    const d=document.createElement("div");d.className="r"+(i===0&&!o.err&&ok.length>1?" best":"");
+    const n=document.createElement("div");n.className="n";n.textContent=o.name;
+    const t=document.createElement("div");t.className="t";
+    const x=document.createElement("div");x.className="d";
+    if(o.err){t.textContent="—";x.textContent=o.err;x.classList.add("bad")}
+    else{
+      t.textContent=o.min+" min";
+      const ex=o.min-o.free;
+      x.textContent="Sin tráfico "+o.free+" min · "+(ex>0?"+"+ex+" min por tráfico":"sin retrasos")+" · "+o.km+" km";
+      if(ex>=10)x.classList.add("bad");else if(ex>=4)x.classList.add("warn");
+      if(d.classList.contains("best"))n.textContent=o.name+" (la más rápida)";
+    }
+    d.append(n,t,x);$("res").appendChild(d);
+  });
+  $("hora").textContent="Consultado a las "+new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+  btn.disabled=false;btn.textContent="Calcular ahora";
+}
+$("go").onclick=go;
+$("save").onclick=()=>{save();$("cfg").open=false};
+drawCfg();
+if(!S.key)$("cfg").open=true;
+</script>
+</body>
+</html>
