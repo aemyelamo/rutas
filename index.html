@@ -58,9 +58,17 @@ small{color:var(--mute);display:block;margin-top:.3rem}
 </details>
 </main>
 <script>
-const N=4, K="rutas_v1";
+const N=4, K="rutas_v2";
 const $=id=>document.getElementById(id);
-let S={key:"",from:"",to:"",routes:Array.from({length:N},(_,i)=>({name:"Ruta "+(i+1),via:""}))};
+let S={key:"AIzaSyB-XkYRm-e0w_iGc6fqgs3bg_oJCaR4B6M",
+from:"37.37142636959382, -6.0821910846558565",
+to:"37.38716329531549, -5.916547999999999",
+routes:[
+{name:"A49 + V Centenario",via:"37.381900680378756, -6.0355261666315245\n37.38222320754417, -6.025932113609475\n37.34855282950748, -5.99267462561964"},
+{name:"Mairena",via:"37.35815303805563, -6.068979391086745\n37.359952090896364, -6.047078835898999"},
+{name:"Tomares por Hipercor",via:"37.366436822337526, -6.046458557069444\n37.3740736580152, -6.029441130736022"},
+{name:"Tomares por Mediamarkt",via:"37.366436822337526, -6.046458557069444\n37.362126568921006, -6.040977015341215"}
+]};
 try{const g=JSON.parse(localStorage.getItem(K));if(g)S=Object.assign(S,g)}catch(e){}
 
 function drawCfg(){
@@ -88,7 +96,7 @@ function loc(s){
 async function calc(r){
   const vias=r.via.split("\n").map(s=>s.trim()).filter(Boolean);
   const body={origin:loc(S.from),destination:loc(S.to),travelMode:"DRIVE",
-    routingPreference:"TRAFFIC_AWARE_OPTIMAL",languageCode:"es",
+    routingPreference:"TRAFFIC_AWARE_OPTIMAL",languageCode:"es",regionCode:"ES",
     intermediates:vias.map(v=>Object.assign(loc(v),{via:true}))};
   const res=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{method:"POST",
     headers:{"Content-Type":"application/json","X-Goog-Api-Key":S.key,
@@ -97,7 +105,7 @@ async function calc(r){
   const j=await res.json();
   if(!res.ok)throw new Error(j.error&&j.error.message||"Error "+res.status);
   const o=j.routes&&j.routes[0];
-  if(!o)throw new Error("Sin resultado");
+  if(!o)throw new Error("Sin resultado. Respuesta de Google: "+JSON.stringify(j).slice(0,250));
   const s=x=>Math.round(parseInt(x)/60);
   return{name:r.name,min:s(o.duration),free:s(o.staticDuration),km:(o.distanceMeters/1000).toFixed(1).replace(".",",")};
 }
